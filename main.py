@@ -21,9 +21,10 @@ idempotency_cache = {}
 rate_limit_store = {}
 next_new_order_id = TOTAL_ORDERS + 1
 
+from fastapi.responses import JSONResponse # Yeh line upar import mein add karein
+
 @app.middleware("http")
 async def rate_limiter(request: Request, call_next):
-    # FIX: Browser ki CORS preflight (OPTIONS) requests ko allow karo
     if request.method == "OPTIONS":
         return await call_next(request)
         
@@ -39,9 +40,9 @@ async def rate_limiter(request: Request, call_next):
             if retry_after < 1:
                 retry_after = 1
                 
-            # FIX: Rate limit error ke sath CORS header bhejna zaroori hai
-            return Response(
-                content='{"error": "Too Many Requests"}',
+            # JSONResponse ka use karke Retry-After header wapas bhejna
+            return JSONResponse(
+                content={"error": "Too Many Requests"},
                 status_code=429,
                 headers={
                     "Retry-After": str(retry_after),
@@ -53,7 +54,7 @@ async def rate_limiter(request: Request, call_next):
         rate_limit_store[client_id] = timestamps
 
     return await call_next(request)
-
+    
 @app.post("/orders", status_code=201)
 async def create_order(request: Request, response: Response):
     global next_new_order_id
